@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crane Control UI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .container {
+            display: flex;
+        }
+        .control-panel, .current-state, .visualization {
+            flex: 1;
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .control-panel {
+            max-width: 300px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="number"], input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .crane-part {
+            position: absolute;
+            color: white;
+            text-align: center;
+            line-height: 30px;
+        }
+        #crane-swing {
+            background-color: #ff0000; /* Red */
+        }
+        #crane-lift {
+            background-color: #0000ff; /* Blue */
+        }
+        .ticker {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<h1>Crane Control UI</h1>
+<div class="container">
+    <div class="control-panel">
+        <h2>Control Panel</h2>
+        <label for="swing">Swing:</label>
+        <input type="range" id="swing" name="swing" min="0" max="360" value="0" oninput="updateSwingValue(this.value)">
+        <input type="number" id="swing-value" name="swing-value" value="0" readonly>
+        <label for="lift">Lift:</label>
+        <input type="range" id="lift" name="lift" min="0" max="100" value="0" oninput="updateLiftValue(this.value)">
+        <input type="number" id="lift-value" name="lift-value" value="0" readonly>
+        <label for="elbow">Elbow:</label>
+        <input type="range" id="elbow" name="elbow" min="0" max="100" value="0" oninput="updateElbowValue(this.value)">
+        <input type="number" id="elbow-value" name="elbow-value" value="0" readonly>
+        <label for="wrist">Wrist:</label>
+        <input type="range" id="wrist" name="wrist" min="0" max="100" value="0" oninput="updateWristValue(this.value)">
+        <input type="number" id="wrist-value" name="wrist-value" value="0" readonly>
+        <label for="gripper">Gripper:</label>
+        <input type="range" id="gripper" name="gripper" min="0" max="100" value="0" oninput="updateGripperValue(this.value)">
+        <input type="number" id="gripper-value" name="gripper-value" value="0" readonly>
+        <h2>Solve IK</h2>
+        <label for="x">X:</label>
+        <input type="range" id="x" name="x" min="0" max="500" value="0" oninput="updateXValue(this.value)">
+        <input type="number" id="x-value" name="x-value" value="0" readonly>
+        <label for="y">Y:</label>
+        <input type="range" id="y" name="y" min="0" max="500" value="0" oninput="updateYValue(this.value)">
+        <input type="number" id="y-value" name="y-value" value="0" readonly>
+        <label for="z">Z:</label>
+        <input type="range" id="z" name="z" min="0" max="500" value="0" oninput="updateZValue(this.value)">
+        <input type="number" id="z-value" name="z-value" value="0" readonly>
+    </div>
+    <div class="current-state">
+        <h2>Current State</h2>
+        <div class="ticker">Swing: <span id="ticker-swing">0</span></div>
+        <div class="ticker">Lift: <span id="ticker-lift">0</span></div>
+        <div class="ticker">Elbow: <span id="ticker-elbow">0</span></div>
+        <div class="ticker">Wrist: <span id="ticker-wrist">0</span></div>
+        <div class="ticker">Gripper: <span id="ticker-gripper">0</span></div>
+    </div>
+    <div class="visualization">
+        <h2>Visualization</h2>
+        <div id="crane">
+            <div id="crane-swing" class="crane-part" style="width: 100px; height: 30px; top: 50%; left: 50%; transform: translate(-50%, -50%);">Swing</div>
+            <div id="crane-lift" class="crane-part" style="width: 30px; height: 100px; top: 50%; left: 50%; transform: translate(-50%, -50%);">Lift</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function connectWebSocket() {
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            updateTickers(data.state);
+            updateCraneVisualization(data.state);
+        };
+        ws.onclose = function(event) {
+            console.log('WebSocket connection closed. Reconnecting...');
+            setTimeout(connectWebSocket, 1000);
+        };
+    }
+
+    connectWebSocket();
+
+    function updateSwingValue(value) {
+        document.getElementById('swing-value').value = value;
+        updateState();
+    }
+
+    function updateLiftValue(value) {
+        document.getElementById('lift-value').value = value;
+        updateState();
+    }
+
+    function updateElbowValue(value) {
+        document.getElementById('elbow-value').value = value;
+        updateState();
+    }
+
+    function updateWristValue(value) {
+        document.getElementById('wrist-value').value = value;
+        updateState();
+    }
+
+    function updateGripperValue(value) {
+        document.getElementById('gripper-value').value = value;
+        updateState();
+    }
+
+    function updateXValue(value) {
+        document.getElementById('x-value').value = value;
+        solveIK();
+    }
+
+    function updateYValue(value) {
+        document.getElementById('y-value').value = value;
+        solveIK();
+    }
+
+    function updateZValue(value) {
+        document.getElementById('z-value').value = value;
+        solveIK();
+    }
+
+    async function updateState() {
+        const state = {
+            swing: parseFloat(document.getElementById('swing').value) || 0,
+            lift: parseFloat(document.getElementById('lift').value) || 0,
+            elbow: parseFloat(document.getElementById('elbow').value) || 0,
+            wrist: parseFloat(document.getElementById('wrist').value) || 0,
+            gripper: parseFloat(document.getElementById('gripper').value) || 0
+        };
+
+        try {
+            const response = await fetch(`/update_state`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(state),
+            });
+            const data = await response.json();
+            console.log('State updated:', data);
+        } catch (error) {
+            console.error('Error updating state:', error);
+        }
+    }
+
+    async function solveIK() {
+        const x = parseFloat(document.getElementById('x').value) || 0;
+        const y = parseFloat(document.getElementById('y').value) || 0;
+        const z = parseFloat(document.getElementById('z').value) || 0;
+
+        try {
+            const response = await fetch(`/solve_ik`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify([x, y, z]),
+            });
+            const data = await response.json();
+            console.log('IK solved:', data);
+        } catch (error) {
+            console.error('Error solving IK:', error);
+        }
+    }
+
+    function updateTickers(state) {
+        document.getElementById('ticker-swing').textContent = state.swing.toFixed(2);
+        document.getElementById('ticker-lift').textContent = state.lift.toFixed(2);
+        document.getElementById('ticker-elbow').textContent = state.elbow.toFixed(2);
+        document.getElementById('ticker-wrist').textContent = state.wrist.toFixed(2);
+        document.getElementById('ticker-gripper').textContent = state.gripper.toFixed(2);
+    }
+
+    function updateCraneVisualization(state) {
+        const swingElement = document.getElementById('crane-swing');
+        const liftElement = document.getElementById('crane-lift');
+
+        swingElement.style.transform = `translate(-50%, -50%) rotate(${state.swing}deg)`;
+        liftElement.style.height = `${state.lift}px`;
+    }
+</script>
+</body>
+</html>
